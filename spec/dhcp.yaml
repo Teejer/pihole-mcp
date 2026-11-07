@@ -1,0 +1,128 @@
+openapi: 3.0.2
+components:
+  paths:
+    leases:
+      get:
+        summary: Get currently active DHCP leases
+        tags:
+          - "DHCP"
+        operationId: "get_dhcp"
+        description: |
+          This API hook returns the currently active DHCP leases.
+        responses:
+          '200':
+            description: OK
+            content:
+              application/json:
+                schema:
+                  allOf:
+                    - $ref: 'dhcp.yaml#/components/schemas/leases'
+                    - $ref: 'common.yaml#/components/schemas/took'
+          '401':
+            description: Unauthorized
+            content:
+              application/json:
+                schema:
+                  allOf:
+                    - $ref: 'common.yaml#/components/errors/unauthorized'
+                    - $ref: 'common.yaml#/components/schemas/took'
+    leases_ip:
+      parameters:
+        - $ref: 'dhcp.yaml#/components/parameters/ip'
+      delete:
+        summary: Remove DHCP lease
+        tags:
+          - "DHCP"
+        operationId: "delete_dhcp"
+        description: |
+          This API hook removes a currently active DHCP lease.
+          Managing DHCP leases is only possible when the DHCP server is enabled.
+          *Note:* There will be no content on success.
+        responses:
+          '204':
+            description: Item deleted
+          '404':
+            description: Item not found
+            content:
+              application/json:
+                schema:
+                  $ref: 'common.yaml#/components/schemas/took'
+          '400':
+            description: Bad request
+            content:
+              application/json:
+                schema:
+                  allOf:
+                    - $ref: 'common.yaml#/components/errors/bad_request'
+                    - $ref: 'common.yaml#/components/schemas/took'
+                examples:
+                  invalid_ip:
+                    $ref: 'dhcp.yaml#/components/examples/errors/bad_request/invalid_ip'
+                  delete_failed:
+                    $ref: 'dhcp.yaml#/components/examples/errors/bad_request/delete_failed'
+          '401':
+            description: Unauthorized
+            content:
+              application/json:
+                schema:
+                  allOf:
+                    - $ref: 'common.yaml#/components/errors/unauthorized'
+                    - $ref: 'common.yaml#/components/schemas/took'
+  schemas:
+    leases:
+      type: object
+      properties:
+        leases:
+          type: array
+          description: DHCP leases
+          items:
+            type: object
+            properties:
+              expires:
+                type: integer
+                description: Expiration time (0 = infinite lease, never expires)
+                example: 1675671991
+              name:
+                type: string
+                description: Hostname
+                example: "raspberrypi"
+              hwaddr:
+                type: string
+                description: Hardware (MAC) address
+                example: "00:00:00:00:00:00"
+              ip:
+                type: string
+                description: IP address
+                example: "192.168.2.111"
+              clientid:
+                type: string
+                description: Client ID
+                example: "00:00:00:00:00:00"
+  examples:
+    errors:
+      bad_request:
+        invalid_ip:
+          summary: The ip in the URI is missing or not a valid IP address (the hint is the received ip)
+          value:
+            error:
+              key: "bad_request"
+              message: "The provided IP address is invalid"
+              hint: "192.168.2"
+            took: 0.003
+        delete_failed:
+          summary: The lease could not be deleted
+          value:
+            error:
+              key: "bad_request"
+              message: "Failed to delete DHCP lease"
+              hint: "DHCP is not enabled"
+            took: 0.003
+  parameters:
+    ip:
+      in: path
+      name: ip
+      schema:
+        type: string
+      required: true
+      description: IP address of lease to be modified
+      example: 192.168.2.222

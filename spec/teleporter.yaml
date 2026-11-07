@@ -1,0 +1,219 @@
+openapi: 3.0.2
+components:
+  paths:
+    teleporter:
+      get:
+        summary: Export Pi-hole settings
+        tags:
+          - "Pi-hole configuration"
+        operationId: "get_teleporter"
+        description: |
+          Request an archived copy of your Pi-hole's current configuration.
+          Authentication via header or cookie is required for the endpoint.
+          The archive contains the password hashes and the TOTP secret, so application sessions without `webserver.api.app_sudo` cannot export it.
+        responses:
+          '200':
+            description: OK
+            content:
+              application/zip:
+                schema:
+                  type: string
+                  format: binary
+          '401':
+            description: Unauthorized
+            content:
+              application/json:
+                schema:
+                  allOf:
+                    - $ref: 'common.yaml#/components/errors/unauthorized'
+                    - $ref: 'common.yaml#/components/schemas/took'
+          '403':
+            description: Forbidden
+            content:
+              application/json:
+                schema:
+                  allOf:
+                    - $ref: 'common.yaml#/components/errors/forbidden'
+                    - $ref: 'common.yaml#/components/schemas/took'
+                examples:
+                  app_session:
+                    $ref: 'teleporter.yaml#/components/examples/errors/forbidden/app_session_export'
+      post:
+        summary: Import Pi-hole settings
+        tags:
+          - "Pi-hole configuration"
+        operationId: "post_teleporter"
+        description: |
+          Upload a Pi-hole Teleporter archive to (partially) restore from it. Note that this will overwrite your current configuration.
+          Authentication via header or cookie is required for the endpoint.
+        requestBody:
+          content:
+            multipart/form-data:
+              schema:
+                properties:
+                  file:
+                    type: string
+                    format: binary
+                  import:
+                    type: object
+                    nullable: true
+                    properties:
+                      config:
+                        type: boolean
+                        description: "Import Pi-hole configuration"
+                        example: true
+                      dhcp_leases:
+                        type: boolean
+                        description: "Import Pi-hole DHCP leases"
+                        example: true
+                      gravity:
+                        type: object
+                        properties:
+                          group:
+                            type: boolean
+                            description: "Import Pi-hole's groups table"
+                            example: true
+                          adlist:
+                            type: boolean
+                            description: "Import Pi-hole's adlist table"
+                            example: true
+                          adlist_by_group:
+                            type: boolean
+                            description: "Import Pi-hole's table relating adlist entries to groups"
+                            example: true
+                          domainlist:
+                            type: boolean
+                            description: "Import Pi-hole's domainlist table"
+                            example: true
+                          domainlist_by_group:
+                            type: boolean
+                            description: "Import Pi-hole's table relating domainlist entries to groups"
+                            example: true
+                          client:
+                            type: boolean
+                            description: "Import Pi-hole's client table"
+                            example: true
+                          client_by_group:
+                            type: boolean
+                            description: "Import Pi-hole's table relating client entries to groups"
+                            example: true
+                    description: "A JSON object of files to import. If omitted, all files will be imported."
+        responses:
+          '200':
+            description: OK
+            content:
+              application/json:
+                schema:
+                  allOf:
+                    - $ref: 'teleporter.yaml#/components/schemas/teleporter/post'
+                    - $ref: 'common.yaml#/components/schemas/took'
+                examples:
+                  teleporter:
+                    $ref: 'teleporter.yaml#/components/examples/teleporter'
+          '400':
+            description: Bad request
+            content:
+              application/json:
+                schema:
+                  allOf:
+                    - $ref: 'common.yaml#/components/errors/bad_request'
+                    - $ref: 'common.yaml#/components/schemas/took'
+                examples:
+                  invalid_file:
+                    $ref: 'teleporter.yaml#/components/examples/errors/bad_request/invalid_file'
+                  invalid_archive:
+                    $ref: 'teleporter.yaml#/components/examples/errors/bad_request/invalid_archive'
+                  no_file:
+                    $ref: 'teleporter.yaml#/components/examples/errors/bad_request/no_file'
+          '401':
+            description: Unauthorized
+            content:
+              application/json:
+                schema:
+                  allOf:
+                    - $ref: 'common.yaml#/components/errors/unauthorized'
+                    - $ref: 'common.yaml#/components/schemas/took'
+          '403':
+            description: Forbidden
+            content:
+              application/json:
+                schema:
+                  allOf:
+                    - $ref: 'common.yaml#/components/errors/forbidden'
+                    - $ref: 'common.yaml#/components/schemas/took'
+                examples:
+                  app_session:
+                    $ref: 'teleporter.yaml#/components/examples/errors/forbidden/app_session'
+                  cli_session:
+                    $ref: 'teleporter.yaml#/components/examples/errors/forbidden/cli_session'
+  schemas:
+    teleporter:
+      post:
+        type: object
+        properties:
+          files:
+            type: array
+            description: Files (and gravity tables) imported from the archive
+            items:
+              type: string
+
+  examples:
+    teleporter:
+      value:
+        files:
+          - etc/pihole/pihole.toml
+          - etc/pihole/gravity.db->group
+          - etc/pihole/gravity.db->adlist
+          - etc/pihole/gravity.db->adlist_by_group
+        took: 0.003
+    errors:
+      bad_request:
+        invalid_file:
+          summary: The uploaded file is not a Teleporter archive
+          value:
+            error:
+              key: "bad_request"
+              message: "Invalid file"
+              hint: "The uploaded file does not appear to be a valid Pi-hole Teleporter archive"
+            took: 0.003
+        invalid_archive:
+          summary: The archive could not be read
+          value:
+            error:
+              key: "bad_request"
+              message: "Invalid request"
+              hint: "Failed to parse received ZIP archive: failed finding central directory"
+            took: 0.003
+        no_file:
+          summary: No file in the form data
+          value:
+            error:
+              key: "bad_request"
+              message: "No ZIP archive received"
+              hint: null
+            took: 0.003
+      forbidden:
+        app_session_export:
+          summary: Application session without sudo mode
+          value:
+            error:
+              key: "forbidden"
+              message: "Unable to export configuration"
+              hint: "The current app session is not allowed to export Pi-hole config settings (webserver.api.app_sudo is false)"
+            took: 0.003
+        app_session:
+          summary: Application session without sudo mode
+          value:
+            error:
+              key: "forbidden"
+              message: "Unable to change configuration (read-only)"
+              hint: "The current app session is not allowed to modify Pi-hole config settings (webserver.api.app_sudo is false)"
+            took: 0.003
+        cli_session:
+          summary: CLI session
+          value:
+            error:
+              key: "forbidden"
+              message: "Unable to change configuration (read-only)"
+              hint: "The current CLI session is not allowed to modify Pi-hole config settings"
+            took: 0.003

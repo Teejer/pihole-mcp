@@ -1,0 +1,5 @@
+# The server is pure stdlib HTTP (urllib); the only dependency is the MCP
+# SDK itself. No requests, no extra TLS stack -- Pi-hole is plain HTTP on
+# the LAN here, and adding a dependency per convenience is how supply
+# chains die.
+mcp>=2.0.0
