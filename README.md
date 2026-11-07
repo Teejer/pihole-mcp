@@ -68,6 +68,10 @@ FTL's C source. Those findings are encoded in `server.py` and listed below.
 * Credential/2FA config keys (`webserver.api.pwhash`, `app_pwhash`,
   `totp_secret`, ...) are refused by `set_config`/`api_raw` by design -- a
   chat misfire must not be able to lock the web UI.
+* FTL hands real password hashes (`pwhash`, `app_pwhash`) to any
+  authenticated session in the config tree; every response this server
+  returns passes through a redactor so those never enter the model's
+  context.
 
 ## Safety
 

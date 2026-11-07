@@ -173,6 +173,12 @@ if not os.environ.get("PIHOLE_SKIP_WRITE"):
                 want=25)
     check("generic array tool refuses webserver.*", "error" in bad4)
 
+    # credential hashes must never reach the model's context
+    wcfg = call("get_config", {"element": "webserver"}, want=26)
+    dump = json.dumps(wcfg)
+    check("config responses redact password hashes",
+          "<redacted>" in dump and "BALLOON" not in dump and "$y$" not in dump)
+
 send({"jsonrpc": "2.0", "id": 99, "method": "tools/call", "params": {
     "name": "sessions", "arguments": {}}})  # keep pipe warm till here
 proc.stdin.close()

@@ -192,7 +192,7 @@ class PiHole:
                 raise PiHoleError(err.get("message") or "request rejected",
                                   status=code, hint=err.get("hint"))
             raise PiHoleError(f"HTTP {code} from {method} {path}", status=code)
-        return j
+        return redact(j)
 
     def get(self, path: str, params: dict | None = None) -> Any:
         return self.request("GET", path, params=params)
@@ -248,6 +248,26 @@ def compact(result: Any, limit: int = 40_000) -> Any:
         "_preview": text[:limit],
         "_note": "reply was truncated; narrow it with a filter or lower limit",
     }
+
+
+# FTL returns these in the config tree to any authenticated session: the
+# password and totp_secret come back pre-masked, but pwhash/app_pwhash arrive
+# as real KDF hashes. They are hashes, not plaintext -- yet handing a chat
+# transcript a crackable copy of your admin credential is needless exposure.
+# Everything that leaves this server passes through redact().
+SECRET_KEYS = {"pwhash", "app_pwhash", "cli_pwhash", "totp_secret", "password"}
+
+
+def redact(node: Any) -> Any:
+    if isinstance(node, dict):
+        return {
+            k: ("<redacted>" if k in SECRET_KEYS and isinstance(v, str) and v
+                else redact(v))
+            for k, v in node.items()
+        }
+    if isinstance(node, list):
+        return [redact(x) for x in node]
+    return node
 
 
 def guard_write() -> None:
